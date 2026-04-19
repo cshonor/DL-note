@@ -21,11 +21,19 @@ def ele_mul(scalar: float, vector: list[float]) -> list[float]:
     return [scalar * vector[i] for i in range(len(vector))]
 
 
-def sgd_step(weights: list[float], input_vec: list[float], true: float, alpha: float) -> tuple[float, float, float, list[float]]:
+def sgd_step(
+    weights: list[float],
+    input_vec: list[float],
+    true: float,
+    alpha: float,
+    freeze_idx: int = -1,
+) -> tuple[float, float, float, list[float]]:
     pred = neural_network(input_vec, weights)
     error = (pred - true) ** 2
     delta = pred - true
     wds = ele_mul(delta, input_vec)
+    if 0 <= freeze_idx < len(weights):
+        wds[freeze_idx] = 0.0
     for i in range(len(weights)):
         weights[i] -= alpha * wds[i]
     return pred, error, delta, wds
@@ -36,6 +44,7 @@ def bgd_step(
     inputs: list[list[float]],
     targets: list[float],
     alpha: float,
+    freeze_idx: int = -1,
 ) -> tuple[float, list[float]]:
     """对多条样本的 weight_delta 取平均后更新一次。"""
     n = len(inputs)
@@ -49,6 +58,8 @@ def bgd_step(
         for i in range(len(weights)):
             acc[i] += wds[i]
     mean_wd = [acc[i] / n for i in range(len(weights))]
+    if 0 <= freeze_idx < len(weights):
+        mean_wd[freeze_idx] = 0.0
     for i in range(len(weights)):
         weights[i] -= alpha * mean_wd[i]
     mse = total_err / n
@@ -61,6 +72,8 @@ def main() -> None:
     p.add_argument("--epochs", type=int, default=80, help="外层迭代次数")
     p.add_argument("--every", type=int, default=10, help="每隔多少轮打印一行")
     p.add_argument("--alpha", type=float, default=0.01)
+    p.add_argument("--freeze-idx", type=int, default=-1, help="-1 表示不冻结；0/1/2 表示冻结对应权重")
+    p.add_argument("--unfreeze-epoch", type=int, default=-1, help="-1 表示不解冻；到达该轮后取消冻结")
     args = p.parse_args()
 
     toes = [8.5, 9.5, 9.9, 9.0]
@@ -73,12 +86,15 @@ def main() -> None:
     weights = [0.1, 0.2, -0.1]
     alpha = args.alpha
 
-    print("mode:", args.mode, "alpha:", alpha)
+    print("mode:", args.mode, "alpha:", alpha, "freeze_idx:", args.freeze_idx, "unfreeze_epoch:", args.unfreeze_epoch)
     print("init weights:", weights)
 
     if args.mode == "bgd":
         for ep in range(1, args.epochs + 1):
-            mse, mean_wd = bgd_step(weights, inputs, targets, alpha)
+            active_freeze_idx = args.freeze_idx
+            if args.unfreeze_epoch > 0 and ep >= args.unfreeze_epoch:
+                active_freeze_idx = -1
+            mse, mean_wd = bgd_step(weights, inputs, targets, alpha, active_freeze_idx)
             if ep == 1 or ep % args.every == 0 or ep == args.epochs:
                 print(f"ep={ep:4d}  mse={mse:.6f}  mean_wd={[round(x, 4) for x in mean_wd]}  w={[round(x, 4) for x in weights]}")
         return
@@ -91,7 +107,10 @@ def main() -> None:
         else:
             x, y = inputs[idx], targets[idx]
             idx = (idx + 1) % len(inputs)
-        pred, err, delta, wds = sgd_step(weights, x, y, alpha)
+        active_freeze_idx = args.freeze_idx
+        if args.unfreeze_epoch > 0 and ep >= args.unfreeze_epoch:
+            active_freeze_idx = -1
+        pred, err, delta, wds = sgd_step(weights, x, y, alpha, active_freeze_idx)
         if ep == 1 or ep % args.every == 0 or ep == args.epochs:
             print(
                 f"ep={ep:4d}  pred={pred:.4f}  err={err:.6f}  delta={delta:+.4f}  "

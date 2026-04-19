@@ -71,7 +71,7 @@ win_or_lose_binary = [1, 1, 0, 1]
 
 **再往前：对权重 `w_i` 的梯度（链式法则）**
 
-- `pred = w1*x1 + w2*x2 + w3*x3`（与 **`w_sum(weights, input)`** 同型）
+- `pred = w1*x1 + w2*x2 + w3*x3`（与 **`w_sum(input_vec, weights)`** 同型）
 - **∂pred / ∂wᵢ** = **xᵢ**（只对含 **`wᵢ`** 的那一项求导）
 
 记 **`L`** 为上面采用 **`½`** 时的损失，则链式法则给出：

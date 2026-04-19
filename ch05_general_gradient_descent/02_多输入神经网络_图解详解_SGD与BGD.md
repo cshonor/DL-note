@@ -1,0 +1,132 @@
+# 多输入神经网络：梯度下降图解详解（与第 5 章书页对照）
+
+> 与 **`01_多输入神经网络_四步训练与一次迭代.md`**（**一次迭代**、**`img/1`～`img/8`** 书页顺序）一起读：本文用**同一套公式**把「模块①～④」串成文字版总览，并区分 **单样本更新（SGD 族）** 与 **全批量平均梯度（BGD）**。
+
+---
+
+## 一、网络基础结构（模块①）
+
+### 1. 神经元结构
+
+- **3 个输入特征**：脚趾数目、胜负相关、粉丝数目  
+- **3 个初始权重**：`weights = [0.1, 0.2, -0.1]`  
+- **运算**：加权求和（与向量点积同型），标量输出「是否胜利」的预测  
+
+```python
+def w_sum(a, b):
+    assert len(a) == len(b)
+    output = 0.0
+    for i in range(len(a)):
+        output += a[i] * b[i]
+    return output
+
+
+def neural_network(input_vec, weights):
+    pred = w_sum(input_vec, weights)
+    return pred
+```
+
+---
+
+## 二、预测 + 误差计算（模块②）
+
+### 1. 输入数据（书中四场比赛）
+
+```python
+toes = [8.5, 9.5, 9.9, 9.0]
+wlrec = [0.65, 0.8, 0.8, 0.9]
+nfans = [1.2, 1.3, 0.5, 1.0]
+win_or_lose_binary = [1, 1, 0, 1]
+```
+
+与 **`01`** 对齐的**第一场**：`input = [8.5, 0.65, 1.2]`，`true = 1`。
+
+### 2. 前向与误差
+
+1. **`pred = 0.86`**（**`8.5×0.1 + 0.65×0.2 + 1.2×(−0.1)`**）  
+2. **`error = (pred - true) ** 2`**（平方损失；书中常打印为约 **0.020**）  
+3. **`delta = pred - true = −0.14`**：与 **`01`** 中「节点 delta」同义，是接到各权重增量上的**公共标量因子**。
+
+---
+
+## 三、权重增量（模块③）
+
+**每个权重的增量与 `input[i] * delta` 同型**（在 **`Loss = ½·MSE`** 约定下与 **∂Loss/∂wᵢ** 一致；**`01`** 第三节）。
+
+```python
+def ele_mul(scalar, vector):
+    assert len(vector) > 0
+    return [scalar * vector[i] for i in range(len(vector))]
+
+
+weight_deltas = ele_mul(delta, input_vec)
+```
+
+**第一场、**`delta = −0.14`** 时：**
+
+- **8.5 × (−0.14) = −1.19**  
+- **0.65 × (−0.14) = −0.091**  
+- **1.2 × (−0.14) = −0.168**  
+
+即 **`weight_deltas = [−1.19, −0.091, −0.168]`**（书中手算可能对第二位小数四舍五入；精确浮点见 **`mult_input_one_step.py`**）。
+
+---
+
+## 四、权重更新（模块④）
+
+**`alpha = 0.01`**：步长与 **`04`/`05`** 中 **`η`** 同角色。
+
+\[
+w_{\text{new}} = w_{\text{old}} - \alpha \cdot \text{weight\_delta}
+\]
+
+```python
+for i in range(len(weights)):
+    weights[i] -= alpha * weight_deltas[i]
+```
+
+**一步之后（与书页同型；第二位小数略舍入）：**
+
+1. **0.1 − (−1.19 × 0.01) ≈ 0.1119**  
+2. **0.2 − (−0.091 × 0.01) ≈ 0.20091**（书中常写作 **0.201**）  
+3. **−0.1 − (−0.168 × 0.01) ≈ −0.09832**（书中常写作 **−0.098**）  
+
+---
+
+## 五、核心小结
+
+1. **多输入共享一个标量 `delta`**：每个权重仍乘**各自的输入**，增量可以差别很大。  
+2. **`|input[i]|` 大** 时 **`|weight_deltas[i]|`** 往往更大，更依赖 **`alpha`** 防止一步跨太大（**`01`** 篇首 **`img/7`** ④⑤ 合页下半单输入例同旨）。  
+3. **闭环**：**前向 → `error` / `delta` → `ele_mul` → 带 `alpha` 更新**。  
+4. 深层网络在实现上仍是此类单元的组合与链式求导的推广。
+
+---
+
+## 六、拓展：SGD 与全批量（BGD）
+
+- **只拿一条样本**算 **`delta`**、更新一次权重，属于 **随机梯度下降（SGD）族**（书中一页一步即此）。  
+- **先把每条样本的 `weight_deltas` 求出来再取平均**，用**平均向量**更新一次，是**全批量梯度下降（BGD）**的一种典型写法（批量大小 = 样本条数）。  
+- **`alpha`** 过大易震荡或发散，过小则收敛慢；多特征尺度差大时往往需要更小 **`alpha`** 或特征缩放（见 **`04`/`05`**）。
+
+---
+
+## 七、可运行脚本与书页图
+
+- **一场、一步、与 **`01`** 数值对齐**：**`mult_input_one_step.py`**  
+- **多轮打印 `pred` / `error` / `weights`**：**`mult_input_train_loop.py`**  
+
+仓库根目录示例：
+
+```bash
+python ch05_general_gradient_descent/mult_input_train_loop.py --mode sgd0 --epochs 80 --every 10
+python ch05_general_gradient_descent/mult_input_train_loop.py --mode sgd_cycle --epochs 120 --every 20
+python ch05_general_gradient_descent/mult_input_train_loop.py --mode bgd --epochs 200 --every 20
+```
+
+**`01`** 篇首书页顺序：**`img/1`～`img/8`** 对应 **03 → 07 → 01 → 04 → 05 → 02 → 06 → 08**，可与上文章节①～④对照翻图。
+
+---
+
+## 八、题外说明（标题里的「批量」）
+
+若标题写「批量梯度下降」，常指 **用一批样本算平均梯度再更新**。本文 **`--mode bgd`** 对四场样本各算 **`weight_deltas`** 后**取平均**再更新一步，即批量大小为 4 的一种 **BGD**；**`--mode sgd0`** 则与 **`01`** 相同，只用第一场，属于 **SGD 族**。

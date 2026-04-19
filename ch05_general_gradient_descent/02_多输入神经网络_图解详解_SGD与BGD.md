@@ -249,3 +249,81 @@ python ch05_general_gradient_descent/mult_input_train_loop.py --mode sgd0 --epoc
 - `weight_delta_i = x_i * delta`：在本章约定下可直接用于参数更新。  
 - 标准导数若写成 `error = (pred-true)^2`，会多一个常数 2；常数可吸收到 `alpha`，方向不变。  
 - 深层网络里，`delta` 会继续乘上更多局部导数向前传播；“共享一个 `delta` 后按输入分摊”仍是核心骨架。
+
+---
+
+## 十、交叉熵损失 + Sigmoid：`delta` 与权重梯度完整对照
+
+这部分是二分类最经典组合，用同一条“`delta * 输入`”骨架对比前文的平方误差版本。
+
+### 1) 模型设定（二分类）
+
+- 线性层：`z = w1*x1 + w2*x2 + ... + wn*xn`  
+- Sigmoid 概率输出：`y_hat = 1 / (1 + exp(-z))`  
+- 标签：`y in {0, 1}`  
+- 单样本交叉熵：`L = -( y*ln(y_hat) + (1-y)*ln(1-y_hat) )`
+
+### 2) Sigmoid 导数（关键恒等式）
+
+- `d(sigmoid(z))/dz = sigmoid(z) * (1 - sigmoid(z)) = y_hat * (1 - y_hat)`
+
+### 3) 节点 `delta` 推导（无 LaTeX 展开）
+
+定义节点端误差信号：`delta = dL/dz`。链式法则：
+
+- `delta = (dL/dy_hat) * (dy_hat/dz)`
+
+其中：
+
+- `dL/dy_hat = -( y / y_hat - (1-y)/(1-y_hat) )`  
+- `dy_hat/dz = y_hat * (1-y_hat)`
+
+相乘后会化简为：
+
+- `delta = y_hat - y`
+
+这就是常说的“Sigmoid + 交叉熵顶层简化”：节点 `delta` 非常干净。
+
+### 4) 权重梯度（`weight_delta`）
+
+对任意权重 `w_i`：
+
+- `dL/dw_i = (dL/dz) * (dz/dw_i)`  
+- `dz/dw_i = x_i`
+
+所以：
+
+- `dL/dw_i = delta * x_i = (y_hat - y) * x_i`
+
+也就是说，和前文结构完全同型：
+
+- **梯度骨架始终是**：`weight_delta_i = 节点delta * 对应输入特征`
+
+### 5) 与“线性输出 + 平方误差”对照
+
+- **线性 + 平方误差（无 0.5）**：`delta_linear = 2*(pred - y)`，`dL/dw_i = delta_linear * x_i`  
+- **Sigmoid + 交叉熵**：`delta_ce = y_hat - y`，`dL/dw_i = delta_ce * x_i`
+
+同：
+
+- 权重梯度都是“节点误差信号 × 输入特征”
+
+异：
+
+- 节点误差信号的计算方式不同（也就是顶层 `delta` 定义不同）
+
+### 6) 更新步骤（同一骨架）
+
+1. 前向：`z -> y_hat`  
+2. 节点误差信号：`delta = y_hat - y`  
+3. 权重梯度：`weight_delta_i = delta * x_i`  
+4. 更新：`w_i = w_i - alpha * weight_delta_i`
+
+### 7) 多分类一句话（Softmax + 交叉熵）
+
+多分类顶层也有同型结果：`delta_i = y_hat_i - y_i`，再乘输入得到每条连接权重梯度。  
+“顶层先算 delta，再按输入分摊到权重”这条主骨架不变。
+
+### 8) 配套可运行脚本
+
+- `mult_input_logistic_ce_vs_mse.py`：并排打印 **MSE 版本** 与 **Sigmoid+交叉熵版本** 的 `pred / delta / weight_delta / loss` 变化，方便直观看差异。

@@ -49,56 +49,42 @@ win_or_lose_binary = [1, 1, 0, 1]
 
 ### 3. `delta` 为什么是梯度：从 MSE 到链式法则
 
-这里要算的是：**标量误差（损失）对预测 `pred` 的导数**，再乘 **`∂pred/∂wᵢ`** 得到**对每个权重的导数**。它不是「随便相减」，而是与所选损失定义一致的求导结果；与 **`ch04_gradient_descent/04_梯度下降_Loss与对权重求导.md`**（**½** 约定、链式）同一套语言。
+这里要算的是：**标量误差（损失）对预测 `pred` 的导数**，再乘 **「`pred` 对 `wᵢ` 的偏导」** 得到**对每个权重的导数**。它不是「随便相减」，而是与所选损失定义一致的求导结果；与 **`ch04_gradient_descent/04_梯度下降_Loss与对权重求导.md`**（**½** 约定、链式）同一套语言。
 
 **误差（打印用的平方损失，无 ½）**
 
-\[
-\text{error} = (\text{pred} - \text{true})^2
-\]
+- `error = (pred - true) ** 2`
 
-对 **`pred`** 求导：
+对 **`pred`** 求偏导（把 **`true`** 当常数）：
 
-\[
-\frac{\partial \,\text{error}}{\partial \,\text{pred}} = 2\,(\text{pred} - \text{true})
-\]
+- **∂error / ∂pred** = **2 · (pred − true)**
 
-若改用**带 ½ 的损失**（与 **`04`**「拆开算」常见写法一致）
+若改用**带 ½ 的损失**（与 **`04`**「拆开算」常见写法一致）：
 
-\[
-L = \tfrac{1}{2}(\text{pred} - \text{true})^2
-\]
+- `L = 0.5 * (pred - true) ** 2`
 
 则
 
-\[
-\frac{\partial L}{\partial \,\text{pred}} = \text{pred} - \text{true} = \delta
-\]
+- **∂L / ∂pred** = **pred − true** = **`delta`**
 
-也就是说：**在 `Loss = ½·(pred−true)²` 下，`delta = pred − true` 就是 `∂L/∂pred`，一项不多、一项不少。** 书中代码常写 **`error = (pred−true)²`** 便于看数量级，同时把 **`delta = pred−true`** 当作「节点上的梯度信号」用在与 **`04`** 对齐的推导里——两套打印可以并存，关键是**链式里乘在 `w` 前的那一段**与 **`½`** 是否一致（**`04`** 第四节末：**常数因子 2 只会重标定学习率 `α`**，不改变下降方向）。
+也就是说：**在 `Loss = ½·(pred−true)²` 下，`delta = pred − true` 就是 ∂L/∂pred，一项不多、一项不少。** 书中代码常写 **`error = (pred−true)²`** 便于看数量级，同时把 **`delta = pred−true`** 当作「节点上的梯度信号」用在与 **`04`** 对齐的推导里——两套打印可以并存，关键是**链式里乘在 `w` 前的那一段**与 **`½`** 是否一致（**`04`** 第四节末：**常数因子 2 只会重标定学习率 `α`**，不改变下降方向）。
 
 **再往前：对权重 `w_i` 的梯度（链式法则）**
 
-\[
-\text{pred} = w_1 x_1 + w_2 x_2 + w_3 x_3,\qquad
-\frac{\partial \,\text{pred}}{\partial w_i} = x_i
-\]
+- `pred = w1*x1 + w2*x2 + w3*x3`（与 **`w_sum(weights, input)`** 同型）
+- **∂pred / ∂wᵢ** = **xᵢ**（只对含 **`wᵢ`** 的那一项求导）
 
-记 **`L`** 为上面采用 **`½`** 时的损失，则
+记 **`L`** 为上面采用 **`½`** 时的损失，则链式法则给出：
 
-\[
-\frac{\partial L}{\partial w_i}
-= \frac{\partial L}{\partial \,\text{pred}}\cdot\frac{\partial \,\text{pred}}{\partial w_i}
-= \delta \cdot x_i
-\]
+- **∂L / ∂wᵢ** = **(∂L / ∂pred) · (∂pred / ∂wᵢ)** = **`delta · xᵢ`**
 
 即代码里的 **`weight_deltas = ele_mul(delta, input_vec)`**：**每个分量是 `L` 对对应 `w_i` 的偏导（在 `½` 约定下）**；更新 **`w_i ← w_i − α · (∂L/∂w_i)`** 即 **`weights[i] -= alpha * weight_deltas[i]`**。
 
 **小结（与误区对照）**
 
-- **`delta = pred − true`**：在 **`Loss = ½·MSE`** 下**就是** **`∂L/∂pred`**；若损失无 **`½`**，严格说是 **`½·∂error/∂pred`** 与 **`delta`** 差因子 **2**，由 **`α`** 吸收。  
-- **`delta * x_i`**：在 **`½`** 约定下是 **`∂L/∂w_i`**，与 **`ele_mul(delta, input)`** 一致。  
-- **更深网络**：仍是链式法则，只是把 **`∂L/∂pred`** 到各层的路径多乘几段雅可比。
+- **`delta = pred − true`**：在 **`Loss = ½·MSE`** 下**就是** **∂L/∂pred**；若损失无 **`½`**，严格说是 **(½)·(∂error/∂pred)** 与 **`delta`** 差因子 **2**，由 **`α`** 吸收。  
+- **`delta * x_i`**：在 **`½`** 约定下是 **∂L/∂wᵢ**，与 **`ele_mul(delta, input)`** 一致。  
+- **更深网络**：仍是链式法则，只是把 **∂L/∂pred** 到各层的路径多乘几段雅可比（多段局部导数连乘）。
 
 手算想**显式带着系数 2**：把 **`error`** 对 **`pred`** 的导数写成 **`2(pred−true)`**，再 **`× x_i`** 得到 **`2·delta·x_i`**；若仍令 **`weight_delta = delta * x`**，则相当于把 **2** 并进 **`α`**（例如用 **`α/2`** 步长），与 **`04`** 第四节「常数只重标定 **`η`**」同一思想。
 
@@ -131,9 +117,7 @@ weight_deltas = ele_mul(delta, input_vec)
 
 **`alpha = 0.01`**：步长与 **`04`/`05`** 中 **`η`** 同角色。
 
-\[
-w_{\text{new}} = w_{\text{old}} - \alpha \cdot \text{weight\_delta}
-\]
+- **新权重** = **旧权重 − α × 该维的 weight_delta**（分量形式与标量 **`w ← w − η·g`** 一致）
 
 ```python
 for i in range(len(weights)):

@@ -201,129 +201,14 @@ python ch05_general_gradient_descent/mult_input_train_loop.py --mode bgd --epoch
 若标题写「批量梯度下降」，常指 **用一批样本算平均梯度再更新**。本文 **`--mode bgd`** 对四场样本各算 **`weight_deltas`** 后**取平均**再更新一步，即批量大小为 4 的一种 **BGD**；**`--mode sgd0`** 则与 **`01`** 相同，只用第一场，属于 **SGD 族**。
 
 ---
+## 九、延伸阅读（已拆分）
 
-## 九、进阶深度解读：迭代、特征差异、冻结与误差面
+为了保持本篇聚焦基础主线，进阶内容已拆分：
 
-### 1) 三轮迭代怎么看
+- **`03_进阶解读_迭代特征差异权重冻结与误差面.md`**：迭代轨迹、特征尺度导致的梯度失衡、冻结/解冻实验、误差面直觉。  
+- **`04_交叉熵与Sigmoid_Delta与权重梯度对照.md`**：二分类交叉熵 + Sigmoid 的 `delta` 推导，以及与 MSE 的并排对照。  
 
-- 训练循环每轮都做同一闭环：`pred -> error/delta -> weight_deltas -> weights -= alpha * weight_deltas`。  
-- 在本例参数（`input=[8.5, 0.65, 1.2]`、`weights=[0.1, 0.2, -0.1]`、`alpha=0.01`）下，前几轮误差会快速下降。  
-- 这不是“魔法跳跃”，而是每轮沿当前局部斜率下山；越接近谷底，`delta` 越小，步子自然越短。
+对应脚本：
 
-### 2) 为什么 a 特征那一路最“能动”
-
-- 同一轮里 `delta` 对全部权重共享；区分每个权重更新幅度的核心是 `x_i`。  
-- 公式是 `weight_delta_i = x_i * delta`，因此 `|x_i|` 越大，`|weight_delta_i|` 往往越大。  
-- 本例 `8.5` 明显大于 `0.65` 与 `1.2`，所以对应权重更新最猛，这就是“特征尺度导致梯度不平衡”的直观来源。  
-- 实务上通常先做标准化/归一化，再调 `alpha`，避免某一路权重震荡或主导训练。
-
-### 3) 单项权重冻结实验（本仓脚本已支持）
-
-用法示例（冻结第一个权重，也就是 `w[0]`）：
-
-```bash
-python ch05_general_gradient_descent/mult_input_train_loop.py --mode sgd0 --epochs 40 --every 5 --freeze-idx 0
-```
-
-先冻结再解冻（例如第 25 轮解冻）：
-
-```bash
-python ch05_general_gradient_descent/mult_input_train_loop.py --mode sgd0 --epochs 60 --every 10 --freeze-idx 0 --unfreeze-epoch 25
-```
-
-观察重点：
-
-- 冻结时，脚本会把该维 `weight_delta` 置零，所以该权重不更新。  
-- 其他权重继续更新，整体误差仍可能下降。  
-- 若系统已到 `delta` 很小的区间再解冻，被冻权重也可能几乎不再动，这就是“全局误差信号衰减后参数学习停滞”的直观版。
-
-### 4) 误差平面的本质（别把多条 U 曲线看成互不相干）
-
-- 单看某个权重时看到的是一条 U 形切片；本质上它是高维误差面的截面。  
-- 三个可训练权重对应参数空间的 3 维，误差是第 4 维高度。  
-- 梯度下降就是在这个高维地形上沿局部最陡下降方向迭代前进；“每条 U 线”只是你从不同轴切开的投影。
-
-### 5) 概念再次对齐（防混淆）
-
-- `delta = pred - true`：节点端共享误差信号。  
-- `weight_delta_i = x_i * delta`：在本章约定下可直接用于参数更新。  
-- 标准导数若写成 `error = (pred-true)^2`，会多一个常数 2；常数可吸收到 `alpha`，方向不变。  
-- 深层网络里，`delta` 会继续乘上更多局部导数向前传播；“共享一个 `delta` 后按输入分摊”仍是核心骨架。
-
----
-
-## 十、交叉熵损失 + Sigmoid：`delta` 与权重梯度完整对照
-
-这部分是二分类最经典组合，用同一条“`delta * 输入`”骨架对比前文的平方误差版本。
-
-### 1) 模型设定（二分类）
-
-- 线性层：`z = w1*x1 + w2*x2 + ... + wn*xn`  
-- Sigmoid 概率输出：`y_hat = 1 / (1 + exp(-z))`  
-- 标签：`y in {0, 1}`  
-- 单样本交叉熵：`L = -( y*ln(y_hat) + (1-y)*ln(1-y_hat) )`
-
-### 2) Sigmoid 导数（关键恒等式）
-
-- `d(sigmoid(z))/dz = sigmoid(z) * (1 - sigmoid(z)) = y_hat * (1 - y_hat)`
-
-### 3) 节点 `delta` 推导（无 LaTeX 展开）
-
-定义节点端误差信号：`delta = dL/dz`。链式法则：
-
-- `delta = (dL/dy_hat) * (dy_hat/dz)`
-
-其中：
-
-- `dL/dy_hat = -( y / y_hat - (1-y)/(1-y_hat) )`  
-- `dy_hat/dz = y_hat * (1-y_hat)`
-
-相乘后会化简为：
-
-- `delta = y_hat - y`
-
-这就是常说的“Sigmoid + 交叉熵顶层简化”：节点 `delta` 非常干净。
-
-### 4) 权重梯度（`weight_delta`）
-
-对任意权重 `w_i`：
-
-- `dL/dw_i = (dL/dz) * (dz/dw_i)`  
-- `dz/dw_i = x_i`
-
-所以：
-
-- `dL/dw_i = delta * x_i = (y_hat - y) * x_i`
-
-也就是说，和前文结构完全同型：
-
-- **梯度骨架始终是**：`weight_delta_i = 节点delta * 对应输入特征`
-
-### 5) 与“线性输出 + 平方误差”对照
-
-- **线性 + 平方误差（无 0.5）**：`delta_linear = 2*(pred - y)`，`dL/dw_i = delta_linear * x_i`  
-- **Sigmoid + 交叉熵**：`delta_ce = y_hat - y`，`dL/dw_i = delta_ce * x_i`
-
-同：
-
-- 权重梯度都是“节点误差信号 × 输入特征”
-
-异：
-
-- 节点误差信号的计算方式不同（也就是顶层 `delta` 定义不同）
-
-### 6) 更新步骤（同一骨架）
-
-1. 前向：`z -> y_hat`  
-2. 节点误差信号：`delta = y_hat - y`  
-3. 权重梯度：`weight_delta_i = delta * x_i`  
-4. 更新：`w_i = w_i - alpha * weight_delta_i`
-
-### 7) 多分类一句话（Softmax + 交叉熵）
-
-多分类顶层也有同型结果：`delta_i = y_hat_i - y_i`，再乘输入得到每条连接权重梯度。  
-“顶层先算 delta，再按输入分摊到权重”这条主骨架不变。
-
-### 8) 配套可运行脚本
-
-- `mult_input_logistic_ce_vs_mse.py`：并排打印 **MSE 版本** 与 **Sigmoid+交叉熵版本** 的 `pred / delta / weight_delta / loss` 变化，方便直观看差异。
+- `mult_input_train_loop.py`（支持 `--freeze-idx`、`--unfreeze-epoch`）  
+- `mult_input_logistic_ce_vs_mse.py`（MSE vs CE 并排日志）

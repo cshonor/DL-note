@@ -213,3 +213,8 @@ python ch05_general_gradient_descent/mult_input_train_loop.py --mode bgd --epoch
 
 - `mult_input_train_loop.py`（支持 `--freeze-idx`、`--unfreeze-epoch`）  
 - `mult_input_logistic_ce_vs_mse.py`（MSE vs CE 并排日志）
+
+补充总览笔记：
+
+- **`06_三种神经网络模型及梯度下降详解.md`**：把多输入单输出、单输入多输出、多输入多输出三种基础结构放在同一页并排对照。
+- **`07_权重可视化与加权和可视化_人话版.md`**：用直觉解释“网络怎么算”和“网络学到了什么”。

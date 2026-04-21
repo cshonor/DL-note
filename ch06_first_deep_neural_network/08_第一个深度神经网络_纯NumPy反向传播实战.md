@@ -13,6 +13,13 @@
 - 默认训练模式：全量批量（BGD）
 - 也支持单样本更新（SGD）
 
+### 网络结构图（3 层权重连接）
+
+> 图里 `layer_0 -> layer_1 -> layer_2` 对应输入层到隐藏层再到输出层；  
+> `weights_0_1` 与 `weights_1_2` 对应两段可学习参数矩阵。
+
+![第6章网络结构图](C:/Users/12392/.cursor/projects/c-Users-12392-Desktop-py-DL/assets/c__Users_12392_AppData_Roaming_Cursor_User_workspaceStorage_9423aded9819b53c39a699aecae7d489_images_image-f8e9d731-0a91-407f-8af8-43bddef8b80a.png)
+
 ---
 
 ## 二、代码（可直接运行）

@@ -1,0 +1,147 @@
+# 第6章：建立你的第一个深度神经网络 —— 反向传播实战
+**Core Concept: Building Your First Deep Neural Network with Backpropagation**
+
+## 章节核心主旨 (Chapter Summary)
+本章是深度学习真正的入门门槛，核心任务是完成从单层感知机到多层深度网络的跨越。它讲透两个关键点：
+1. 正向传播：数据如何通过权重层层计算得到预测结果。
+2. 反向传播：误差如何从输出层反向传回各层权重，并利用链式求导更新权重，最小化损失。
+
+---
+
+## 本章核心知识图谱 (Mind Map)
+本章围绕一个标准深度网络展开：
+- 网络结构：输入层 -> 隐藏层1 -> 隐藏层2 -> 输出层
+- 核心算法：反向传播（Backpropagation）+ 梯度下降（Gradient Descent）
+- 解决问题：如何通过多层非线性变换学习复杂关系
+
+---
+
+## 极简实战代码实现 (Minimalist Implementation)
+下面是完全基于 NumPy 实现、对应本章逻辑的第一个深度网络（对应 6.5-6.25 的完整代码流）。
+
+### 0. 导入依赖与定义超参数
+```python
+import numpy as np
+
+# 超参数
+INPUT_SIZE = 4    # 输入特征维度（交通信号灯4个特征）
+HIDDEN_SIZE1 = 4  # 第一隐藏层神经元数
+HIDDEN_SIZE2 = 3  # 第二隐藏层神经元数
+OUTPUT_SIZE = 1   # 输出维度（二分类）
+LEARNING_RATE = 0.1
+EPOCHS = 10000
+```
+
+### 1. 激活函数与导数 (Activation & Derivatives)
+```python
+def sigmoid(x):
+    """Sigmoid 激活函数，引入非线性"""
+    return 1 / (1 + np.exp(-x))
+
+def sigmoid_deriv(x):
+    """Sigmoid 导数（这里 x 传入的是激活后的值）"""
+    return x * (1 - x)
+```
+
+### 2. 数据准备 (Data Preparation)
+```python
+# 输入数据（4个样本，每个4个特征）
+X = np.array([
+    [0, 0, 0, 1],
+    [0, 1, 1, 1],
+    [1, 0, 1, 0],
+    [1, 1, 1, 1]
+])
+
+# 真实标签（二分类）
+y = np.array([[0], [0], [1], [1]])
+```
+
+### 3. 权重初始化 (Weight Initialization)
+```python
+np.random.seed(1)  # 固定随机种子，保证可复现
+
+W1 = 2 * np.random.random((INPUT_SIZE, HIDDEN_SIZE1)) - 1   # 输入 -> 隐藏1
+W2 = 2 * np.random.random((HIDDEN_SIZE1, HIDDEN_SIZE2)) - 1 # 隐藏1 -> 隐藏2
+W3 = 2 * np.random.random((HIDDEN_SIZE2, OUTPUT_SIZE)) - 1  # 隐藏2 -> 输出
+```
+
+### 4. 核心训练循环 (Training Loop)
+包含完整闭环：正向传播 -> 误差计算 -> 反向传播 -> 更新权重
+
+```python
+for epoch in range(EPOCHS):
+    # 4.1 正向传播
+    L0 = X
+    L1 = sigmoid(np.dot(L0, W1))
+    L2 = sigmoid(np.dot(L1, W2))
+    L3 = sigmoid(np.dot(L2, W3))
+
+    # 4.2 反向传播（远程误差归因）
+    L3_error = y - L3
+    L3_delta = L3_error * sigmoid_deriv(L3)
+
+    L2_error = L3_delta.dot(W3.T)
+    L2_delta = L2_error * sigmoid_deriv(L2)
+
+    L1_error = L2_delta.dot(W2.T)
+    L1_delta = L1_error * sigmoid_deriv(L1)
+
+    # 4.3 梯度下降更新
+    W3 += LEARNING_RATE * np.dot(L2.T, L3_delta)
+    W2 += LEARNING_RATE * np.dot(L1.T, L2_delta)
+    W1 += LEARNING_RATE * np.dot(L0.T, L1_delta)
+
+    if epoch % 1000 == 0:
+        loss = np.mean(np.abs(L3_error))
+        print(f"Epoch {epoch:5d} | Total Loss: {loss:.4f}")
+```
+
+### 5. 最终预测
+```python
+print("\n===== 训练完成！最终预测结果 =====")
+print("Predicted Probability:")
+print(L3)
+print("\nTrue Label:")
+print(y)
+```
+
+---
+
+## 和本章知识点一一对应
+| 本章小节 | 代码对应部分 |
+| :--- | :--- |
+| 6.2 准备数据 | 数据集 `X, y` 定义 |
+| 6.3-6.4 矩阵运算 | 全部 `np.dot` 运算 |
+| 6.5 建立深度网络 | `W1/W2/W3` 权重定义 |
+| 6.7 梯度下降模式 | 可扩展为 Batch / SGD / Mini-batch |
+| 6.15 远程错误归因 | `L3_error -> L2_error -> L1_error` |
+| 6.16 反向传播有效性 | 全程链式求导逐层传递 |
+| 6.22 反向传播代码 | 整套 `delta` 回传逻辑 |
+| 6.23 一次迭代 | 每轮 for 中完整前向+反向+更新 |
+
+---
+
+## 本章重难点复盘 (Key Takeaways)
+
+### 1) 反向传播本质
+误差不是只在最后一层修正，而是逐层回传，把责任分配到每条权重连接上。
+
+### 2) 为什么需要深度与激活
+没有激活函数时，多层线性网络会退化为一层线性模型；非线性激活是深度模型表达复杂模式的核心。
+
+### 3) 三种梯度下降
+- Batch：全量样本算一次梯度再更新
+- SGD：单样本即更新，噪声大但灵活
+- Mini-batch：工程上最常用，稳定与效率折中
+
+---
+
+## 后续衔接 (Next Steps)
+- 第8章：正则化（Regularization）处理过拟合
+- 第9章：更换激活函数（如 ReLU）提升训练稳定性
+- 第10章：卷积神经网络（CNN）与权值共享
+
+---
+
+> 注：本笔记基于《深度学习图解》第6章整理。代码保持极简，重点是看懂反向传播闭环。
